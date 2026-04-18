@@ -10,6 +10,16 @@ Patch 12.0 brought the Secret Values system, which was Blizzard's big addon disa
 
 So this addon is trying to solve one thing: give you back per-mob nameplate colors in M+, without stepping on any of the new rules.
 
+## Supported nameplate addons
+
+**Important:** this addon only recolors one of three nameplate surfaces — [**Plater**](https://www.curseforge.com/wow/addons/plater-nameplates), [**EllesmereUI**](https://www.curseforge.com/wow/addons/ellesmere-ui), or Blizzard's default nameplates. If you're running any other nameplate replacement (ElvUI, TidyPlates, Kui, etc.), the paint won't land — we specifically target the three surfaces we can reliably detect, and everything else gets passed through unchanged.
+
+When more than one of the supported three is loaded, priority is:
+
+1. **Plater** — wins if it's loaded. Plater replaces the visible nameplate entirely, even alongside EllesmereUI, so there's no point painting the EUI bar underneath.
+2. **EllesmereUI** — takes over when Plater isn't loaded.
+3. **Blizzard default** — the fallback when neither is present.
+
 ## How it works
 
 Even with Secret Values turned on, a handful of fields on hostile units are still plain-readable. The addon stitches six of them together into a "fingerprint" that ends up being unique (or close to it) per mob type:
@@ -27,9 +37,13 @@ Every now and then two different mobs hash to the same six-piece key (same model
 
 ## Painting the nameplate
 
-If EllesmereUI is loaded, it owns the visible nameplate. Its pool plate gets parented to Blizzard's, and its own `.health` bar is what you actually see on screen. If you write to `plate.UnitFrame.healthBar` in that setup, nothing happens visually because Blizzard's default bar is hidden behind EUI's. So when EUI is around, the addon walks the children of Blizzard's plate, finds the EUI pool plate, and paints `euiPlate.health` directly. It also drops a post-hook on that plate's `UpdateHealthColor` so our color survives every time EUI repaints (threat changes, focus changes, that kind of thing).
+The paint path picks one of three backends at runtime, in the priority order above.
 
-No EUI? Then it just paints Blizzard's default health bar and calls it a day.
+**Plater** owns its own `unitFrame.healthBar` when it's loaded and hides Blizzard's default. It ships its own "NPC Colors" feature, but that feature silently breaks in Midnight M+ because `UnitGUID` is Secret for hostile mobs inside instances, and Plater pulls the npcID from the GUID — so Plater's per-mob color picker just does nothing in dungeons. Our fingerprint identity sidesteps that entirely, and we slot back into Plater's paint pipeline via a `hooksecurefunc` on `Plater.ChangeHealthBarColor_Internal`. That function is the single funnel every Plater repaint goes through (aggro, threat, reaction, quest, tap-denied), so one hook is enough to keep our color sticky.
+
+**EllesmereUI** does the same ownership trick: it parents a pool plate to the Blizzard one and paints its `.health` bar while hiding Blizzard's. If you write to `plate.UnitFrame.healthBar` in that setup, nothing happens visually because Blizzard's default bar is hidden behind EUI's. When Plater isn't loaded but EUI is, the addon walks the children of Blizzard's plate, finds the EUI pool plate, paints `euiPlate.health` directly, and drops a post-hook on `UpdateHealthColor` so our color survives every time EUI repaints (threat changes, focus changes, that kind of thing).
+
+**No Plater, no EUI?** Then it just paints Blizzard's default health bar and calls it a day.
 
 ## Credits
 
@@ -83,4 +97,4 @@ If something's acting weird, `/mnr` with no args is the first thing to run. It t
 
 ## Compatibility
 
-Built against Interface 120001 (Patch 12.0.1). Works on its own, and plays nicely with EllesmereUI when that's loaded.
+Built against Interface 120001 (Patch 12.0.1). See "Supported nameplate addons" above for the list of nameplate surfaces we actually recolor — anything outside that list is unsupported and won't be painted.
