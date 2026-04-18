@@ -4,6 +4,7 @@
 ## Version: 0.1.0
 ## Notes: Recolor Mythic+ trash nameplates by picking a color per mob. Uses MythicPlusCount's fingerprint formula to identify mobs under Midnight's Secret Values restrictions.
 ## SavedVariables: MidnightNameplateRecolorDB
+## OptionalDeps: Plater, EllesmereUI
 ## Retail: true
 ## X-Compatible-With: retail
 

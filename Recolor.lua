@@ -8,6 +8,13 @@ local addonName, addon = ...
 --      `UpdateHealthColor` per-plate after EUI mixes it in.
 --   3. C_NamePlate.GetNamePlates() doesn't reliably expose `namePlateUnitToken`;
 --      enumerate via `UnitExists("nameplate"..i)` for i=1..40 for robustness.
+--   4. Plater owns its own `plateFrame.unitFrame.healthBar` when loaded and its
+--      NPC-color feature fails in Midnight instances (UnitGUID is secret →
+--      Plater.GetNpcID returns nil). We slot our fingerprint identity into
+--      Plater's paint funnel via `hooksecurefunc(Plater, "ChangeHealthBarColor_Internal")`
+--      (with a reentrancy guard) and paint via the same function. Priority
+--      when both Plater and EUI are loaded: Plater wins (it replaces the
+--      visible nameplate).
 
 local CreateFrame     = CreateFrame
 local C_NamePlate     = C_NamePlate
@@ -74,7 +81,29 @@ local function findEUIPlate(blizzardPlate)
 	return nil
 end
 
+local function platerAvailable()
+	return type(_G.Plater) == "table"
+		and type(_G.Plater.ChangeHealthBarColor_Internal) == "function"
+end
+
+-- Reentrancy guard: our paint calls Plater.ChangeHealthBarColor_Internal, which
+-- would re-fire our hook and recurse. Set true around our own inner call.
+local paintingWithPlater = false
+
+-- Paint priority: Plater > EUI > Blizzard. Plater and EUI both own their own
+-- healthbar and hide Blizzard's; when both are loaded Plater replaces the
+-- visible nameplate, so Plater wins.
 local function paintHealthBar(blizzardPlate, r, g, b)
+	if platerAvailable() then
+		local uf = blizzardPlate.unitFrame -- Plater's frame (lowercase u)
+		local hb = uf and uf.healthBar
+		if hb then
+			paintingWithPlater = true
+			_G.Plater.ChangeHealthBarColor_Internal(hb, r, g, b, 1, true)
+			paintingWithPlater = false
+			return true
+		end
+	end
 	local eui = findEUIPlate(blizzardPlate)
 	if eui and eui.health and eui.health.SetStatusBarColor then
 		eui.health:SetStatusBarColor(r, g, b)
@@ -139,12 +168,32 @@ local function ensurePlateHook(euiPlate)
 	euiPlate._mnrHooked = true
 end
 
+-- Install one global hook on Plater's central color write. Every Plater paint
+-- path funnels through ChangeHealthBarColor_Internal (aggro color, quest, tap
+-- denied, NPC color cache, FindAndSetNameplateColor), so a single hook catches
+-- every repaint. Reentrancy guard avoids infinite loop with our own paint.
+function R:EnsurePlaterHook()
+	if self.platerHookInstalled then return end
+	if not platerAvailable() then return end
+	hooksecurefunc(_G.Plater, "ChangeHealthBarColor_Internal", function(healthBar)
+		if paintingWithPlater or not R.enabled then return end
+		local uf = healthBar and healthBar.unitFrame
+		if not uf or not uf.PlaterOnScreen then return end
+		local unit = uf.unit or uf.namePlateUnitToken
+		if unit then R:PaintUnit(unit) end
+	end)
+	self.platerHookInstalled = true
+end
+
 local eventFrame
 
 local function onAdded(unit)
 	if not unit then return end
-	local bp = C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit(unit)
-	if bp then ensurePlateHook(findEUIPlate(bp)) end
+	-- Plater wins; its global hook drives repaints. Skip EUI per-plate hook work.
+	if not platerAvailable() then
+		local bp = C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit(unit)
+		if bp then ensurePlateHook(findEUIPlate(bp)) end
+	end
 	R:PaintUnit(unit)
 end
 
@@ -179,13 +228,17 @@ end
 function R:OnEnabledChanged(enabled)
 	self.enabled = enabled == true
 	if self.enabled then
+		self:EnsurePlaterHook()
 		self:RegisterEvents()
-		-- Hook plates that are already on-screen at enable time.
-		for i = 1, MAX_NAMEPLATES do
-			local unit = "nameplate" .. i
-			if UnitExists(unit) then
-				local bp = C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit(unit)
-				if bp then ensurePlateHook(findEUIPlate(bp)) end
+		-- Hook plates that are already on-screen at enable time (EUI only —
+		-- Plater's single global hook covers every plate automatically).
+		if not platerAvailable() then
+			for i = 1, MAX_NAMEPLATES do
+				local unit = "nameplate" .. i
+				if UnitExists(unit) then
+					local bp = C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit(unit)
+					if bp then ensurePlateHook(findEUIPlate(bp)) end
+				end
 			end
 		end
 		self:RepaintAll()

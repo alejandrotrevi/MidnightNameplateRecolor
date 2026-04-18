@@ -102,6 +102,10 @@ SlashCmdList["MNR"] = function(msg)
 	print("  fingerprints:   " .. tostring(challengeMapID and addon.Fingerprints[challengeMapID] ~= nil))
 	print("  dungeon name:   " .. tostring(challengeMapID and addon.Dungeons[challengeMapID] and addon.Dungeons[challengeMapID].name or "(unknown)"))
 
+	local platerLoaded = type(_G.Plater) == "table" and type(_G.Plater.ChangeHealthBarColor_Internal) == "function"
+	print("  plater:         " .. (platerLoaded and "yes" or "no")
+		.. (platerLoaded and (R.platerHookInstalled and " (hook installed)" or " (hook pending)") or ""))
+
 	local hostile = 0
 	for i = 1, 40 do
 		local u = "nameplate" .. i
@@ -117,13 +121,20 @@ SlashCmdList["MNR"] = function(msg)
 					if child._mixedIn and child.health then eui = child; break end
 				end
 			end
+			local backend = "blizzard"
+			if platerLoaded and bp and bp.unitFrame and bp.unitFrame.healthBar then
+				backend = "plater"
+			elseif eui then
+				backend = "eui"
+			end
 			print(format("    %s fp=%s", u, tostring(d.base)))
 			print(format("      ext=%s npcID=%s name=%s",
 				tostring(d.ext),
 				tostring(d.npcID or "(no match)"),
 				tostring(mob or "?")))
-			print(format("      color=%s eui=%s hooked=%s buffs=%s",
+			print(format("      color=%s backend=%s eui=%s hooked=%s buffs=%s",
 				tostring(colorKey or "(unset)"),
+				backend,
 				eui and "yes" or "no",
 				eui and eui._mnrHooked and "yes" or "no",
 				tostring(d.buffs)))
