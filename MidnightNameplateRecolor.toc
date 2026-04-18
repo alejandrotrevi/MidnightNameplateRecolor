@@ -1,0 +1,23 @@
+## Interface: 120001
+## Title: Midnight Nameplate Recolor
+## Author: Alejandro
+## Version: 0.1.0
+## Notes: Recolor Mythic+ trash nameplates by picking a color per mob. Uses MythicPlusCount's fingerprint formula to identify mobs under Midnight's Secret Values restrictions.
+## SavedVariables: MidnightNameplateRecolorDB
+## Retail: true
+## X-Compatible-With: retail
+
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+libs\LibEQOL\LibEQOL.xml
+
+Init.lua
+Palette.lua
+Dungeons.lua
+Fingerprints.lua
+Identify.lua
+Recolor.lua
+MidnightNameplateRecolor.lua
+
+Settings\SettingsUI.lua
+Settings\Settings.lua

@@ -1,0 +1,8 @@
+# WoW-generated saved variables (live on the user's machine, not tracked)
+*.bak
+*~
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
