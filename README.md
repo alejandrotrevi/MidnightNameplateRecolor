@@ -1,65 +1,65 @@
 # Midnight Nameplate Recolor
 
-A small World of Warcraft addon that recolors hostile nameplates in Mythic+ dungeons by mob identity. You pick a color per mob in the settings panel, and the addon paints their healthbar that color whenever you see them.
+Small WoW addon that lets you recolor hostile nameplates in Mythic+ dungeons, mob by mob. You open the settings, pick a color for whichever mob you want, and the addon paints that mob's healthbar whenever it shows up on your screen.
 
-Works on Normal, Heroic, Mythic 0, and Mythic+ keystones. Same dungeon, same mob, same color across all difficulties.
+Same color sticks across Normal, Heroic, Mythic 0, and Mythic+ keys. One setup, and you're done for the season.
 
 ## Why this exists
 
-Patch 12.0 introduced the Secret Values system, which was Blizzard's big addon disarmament pass. A bunch of unit data that used to be readable (names, GUIDs, creature type, spell IDs, and so on) became opaque inside instances. The classic "if the mob is named X, color the nameplate red" code path stopped working for hostile units in M+.
+Patch 12.0 brought the Secret Values system, which was Blizzard's big addon disarmament pass. A lot of the unit data addons used to read (names, GUIDs, creature type, spell IDs, you name it) went opaque inside instances. The old "if the mob is named X, color the nameplate red" pattern just stopped working for hostile units in M+.
 
-The goal of this addon is narrow: give back the ability to color trash mobs by identity in M+ dungeons, within the rules of what addons are still allowed to do.
+So this addon is trying to solve one thing: give you back per-mob nameplate colors in M+, without stepping on any of the new rules.
 
 ## How it works
 
-Even with Secret Values in place, a handful of fields stay plain-readable for hostile units in instances. This addon combines six of them into a compound "fingerprint" that is unique, or close enough to unique, for each mob type:
+Even with Secret Values turned on, a handful of fields on hostile units are still plain-readable. The addon stitches six of them together into a "fingerprint" that ends up being unique (or close to it) per mob type:
 
-- Model file ID (read from an offscreen `PlayerModel` probe after calling `SetUnit`)
-- Level modulo 10, so the same mob on Normal, Heroic and M+ maps to the same key
-- Classification (elite, normal, rare, etc.)
+- Model file ID, read off an offscreen `PlayerModel` probe after `SetUnit`
+- Level mod 10, so the same mob on Normal/Heroic/M+ collapses to one key
+- Classification (elite, normal, rare, and so on)
 - Sex
-- Class token (WARRIOR, PALADIN, etc.), assigned per-mob by the server
+- Class token (WARRIOR, PALADIN, etc.), assigned per mob by the server
 - Power type (mana, rage, energy, or none)
 
-Joined with colons that looks like `6366139:0:elite:3:WARRIOR:1`. The addon looks this up in a table keyed by Challenge Map ID and gets the mob's npcID back. Then it looks up whatever color you picked for that npcID in your settings and paints the nameplate.
+Stitched with colons it looks like `6366139:0:elite:3:WARRIOR:1`. That string goes into a table keyed by Challenge Map ID, and what comes back is the mob's npcID. From there we look up whichever color you picked for that npcID and paint the nameplate.
 
-When two mobs happen to collide on the six-dimension key (same model, same class assignment, everything), the addon falls back to an extended key that appends the number of buffs currently on the unit. Buffs are counted with `C_UnitAuras.GetAuraDataByIndex` in a loop. Every field on the returned aura table is Secret, but the nil-vs-non-nil existence check is allowed, so we count auras without reading anything off them.
+Every now and then two different mobs hash to the same six-piece key (same model, same class assignment, everything). When that happens, the addon falls back to an extended key that tacks on the number of buffs the unit has. Buffs get counted with `C_UnitAuras.GetAuraDataByIndex` in a loop. The fields on the returned aura table are Secret, but a nil vs non-nil existence check is still allowed, so the count works without us ever actually reading anything off the aura.
 
 ## Painting the nameplate
 
-If EllesmereUI is loaded it owns the visible nameplate. Its pool plate gets parented to the Blizzard nameplate, and its own `.health` bar is what you actually see. Writing to `plate.UnitFrame.healthBar` in that case does nothing visible, because Blizzard's default bar is hidden underneath. So when EUI is present the addon walks the Blizzard plate's children, finds the pool plate, and paints `euiPlate.health` directly. It also installs a post-hook on that plate's `UpdateHealthColor` so our color survives EUI's periodic repaints (threat, faction, focus change, and so on).
+If EllesmereUI is loaded, it owns the visible nameplate. Its pool plate gets parented to Blizzard's, and its own `.health` bar is what you actually see on screen. If you write to `plate.UnitFrame.healthBar` in that setup, nothing happens visually because Blizzard's default bar is hidden behind EUI's. So when EUI is around, the addon walks the children of Blizzard's plate, finds the EUI pool plate, and paints `euiPlate.health` directly. It also drops a post-hook on that plate's `UpdateHealthColor` so our color survives every time EUI repaints (threat changes, focus changes, that kind of thing).
 
-Without EllesmereUI the fallback is just Blizzard's default health bar.
+No EUI? Then it just paints Blizzard's default health bar and calls it a day.
 
 ## Credits
 
-Most of the credit for this addon goes to the authors of [**MythicPlusCount**](https://www.curseforge.com/wow/addons/mythic-plus-count). MPC is a Mythic+ trash counter that had to solve the exact same mob identification problem we did, for its own reasons (counting forces toward the keystone total).
+Most of the credit here goes to the folks behind [**MythicPlusCount**](https://www.curseforge.com/wow/addons/mythic-plus-count). MPC is a Mythic+ trash counter, and to do its job it had to solve the exact same "how do I identify mobs under Secret Values" problem we did, just for a completely different reason (counting enemy forces toward the key total).
 
-Our own work was the research: digging into what APIs were still plain-readable under Secret Values, building a probe addon to capture per-nameplate data, and trying to assemble a reliable set of fingerprints for the Season 1 dungeons. Once we got deep enough to understand the problem, we realized MPC had already shipped exactly the approach we were converging on, and their fingerprint tables were broader and better validated than anything we were going to collect in a reasonable amount of time. So we stopped collecting and ported theirs.
+What we actually did was the research side: poking at which APIs were still plain-readable in Midnight, building a little probe addon to capture per-nameplate data in real dungeons, and figuring out what a reliable set of fingerprints might look like for Season 1. Somewhere in that process it became obvious that MPC had already shipped exactly the approach we were converging on, and their fingerprint tables were way more complete than anything we were going to assemble ourselves in a sane amount of time. So we dropped our own collection and ported theirs.
 
-Specifically, the following came from MPC:
+Stuff that came directly from MPC:
 
 - The compound fingerprint formula
-- The Challenge Map ID resolver (Mythic+ active key path plus the instance-name fallback for non-keystone runs)
+- The Challenge Map ID resolver (M+ active key path, plus the instance-name fallback for non-keystone runs)
 - The extended-key buff-count tiebreaker
 - The full per-dungeon fingerprint tables for Season 1
-- The dungeon list and the npcID to mob-name mapping that populates the settings UI
+- The dungeon list and the npcID to mob-name mapping that drives the settings UI
 
-None of this works without their empirical collection effort across many live runs.
+Basically, none of this works without the legwork MPC's author did across a ton of live runs.
 
-We also leaned on two other addons for shape and context:
+A couple of other addons also shaped how this was built:
 
-- [**Mythic Dungeon Tools**](https://www.curseforge.com/wow/addons/mythic-dungeon-tools) for per-dungeon NPC metadata (npcID, displayId, creatureType). Useful while sanity-checking fingerprints and understanding display variants.
-- [**EnhanceQoL**](https://www.curseforge.com/wow/addons/enhanceqol) and its companion [**EnhanceQoLSharedMedia**](https://www.curseforge.com/wow/addons/enhanceqolsharedmedia) for the overall addon shape: event-driven lifecycle, settings panel patterns, SavedVariables and profile handling. Our settings panel is a thin layer on top of the LibEQOL approach.
+- [**Mythic Dungeon Tools**](https://www.curseforge.com/wow/addons/mythic-dungeon-tools) for the per-dungeon NPC metadata (npcID, displayId, creatureType). Really handy while double-checking fingerprints and wrapping my head around display variants.
+- [**EnhanceQoL**](https://www.curseforge.com/wow/addons/enhanceqol) (and [**EnhanceQoLSharedMedia**](https://www.curseforge.com/wow/addons/enhanceqolsharedmedia)) for the addon shape overall: how to wire up events, how to structure the settings panel, how SavedVariables and profiles get handled. Our settings panel is mostly a thin wrapper on their LibEQOL approach.
 
 ## Usage
 
-1. Install into `Interface/AddOns`.
-2. Log in, open the Blizzard settings panel, and find "Midnight Nameplate Recolor".
-3. Expand a dungeon, pick a color for any mob from the dropdown.
-4. Enter the dungeon. Pull a pack. That mob's healthbar is the color you picked.
+1. Drop it in `Interface/AddOns`.
+2. Log in, open the Blizzard settings panel, find "Midnight Nameplate Recolor".
+3. Expand a dungeon, pick a color for whichever mob you care about.
+4. Zone in, pull a pack. That mob should show up in your color.
 
-The palette has 11 named colors. Picking "Default" (or leaving it alone) means the nameplate uses whatever color EllesmereUI or Blizzard would normally show.
+There are 11 named colors in the palette. Picking "Default" (or just leaving a mob alone) means the nameplate stays whatever color EllesmereUI or Blizzard would normally give it.
 
 ## Slash commands
 
@@ -67,20 +67,20 @@ The palette has 11 named colors. Picking "Default" (or leaving it alone) means t
 /mnr              status dump for the current instance and visible nameplates
 /mnr on           enable recoloring
 /mnr off          disable recoloring
-/mnr paint        force a repaint pass on every visible plate
-/mnr debug on     per-paint logging in chat
-/mnr debug off    stop logging
-/mnr help         command list
+/mnr paint        force a repaint on every visible plate
+/mnr debug on     chat logging on every paint
+/mnr debug off    stop the logging
+/mnr help         show this command list
 ```
 
-`/mnr` with no arguments is the first thing to run when something isn't behaving. It reports which dungeon you're in, whether the Challenge Map ID resolved, and for each visible plate the fingerprint it produced, the npcID it matched (if any), and the color that would apply.
+If something's acting weird, `/mnr` with no args is the first thing to run. It tells you which dungeon it thinks you're in, whether the Challenge Map ID resolved, and for each visible plate: what fingerprint it generated, which npcID that matched, and the color it would apply.
 
 ## Limitations
 
-- Season 1 only for now. The fingerprint data is a snapshot of what MPC has at the moment. When Season 2 ships the dungeon list will need to be updated, ideally after MPC does their own pass.
-- Fingerprints can drift across patches. Model swaps, rebalancing, or new display variants can invalidate individual entries. Re-syncing with MPC each patch is the cheap fix.
-- A mob whose distinguishing buff is applied mid-combat (rather than pre-pull) may flash the wrong color for a frame or two before the per-plate hook corrects it.
+- Season 1 only for now. The fingerprint data is a snapshot of whatever MPC has at the moment. When Season 2 drops, the dungeon list will need updating, and honestly it's easiest to just wait for MPC to do their pass first.
+- Fingerprints can drift between patches. If Blizzard swaps a model, rebalances a mob, or adds a new display variant, that mob's entry may go stale. Re-syncing with MPC each patch is the cheap way to stay current.
+- If a mob's distinguishing buff is applied mid-combat (rather than pre-pull), the first paint might miss and show the wrong color for a frame or two. The per-plate hook re-fires fast though, so it corrects itself almost immediately.
 
 ## Compatibility
 
-Built against Interface 120001 (Patch 12.0.1). Works standalone, and integrates with EllesmereUI when that addon is loaded.
+Built against Interface 120001 (Patch 12.0.1). Works on its own, and plays nicely with EllesmereUI when that's loaded.
