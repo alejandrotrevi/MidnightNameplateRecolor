@@ -55,6 +55,22 @@ function addon.functions.SettingsCreateDropdown(cat, data)
 	return addon.SettingsLayout.elements[data.var]
 end
 
+function addon.functions.SettingsCreateButton(cat, data)
+	local btn = SettingsLib:CreateButton(cat, {
+		label = data.label,
+		text = data.text,
+		func = data.func,
+		desc = data.desc,
+		searchtags = data.searchtags,
+		parent = data.element,
+		parentCheck = data.parentCheck,
+		parentSection = data.parentSection,
+		prefix = PREFIX,
+	})
+	addon.SettingsLayout.elements[data.var or data.text] = { element = btn }
+	return btn
+end
+
 function addon.functions.SettingsCreateText(cat, text, extra)
 	return SettingsLib:CreateText(cat, text, extra)
 end

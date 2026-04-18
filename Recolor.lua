@@ -199,6 +199,10 @@ function R:InitDB()
 	if not d then return end
 	if d[DB_ENABLED] == nil then d[DB_ENABLED] = true end
 	if type(d[DB_COLORS]) ~= "table" then d[DB_COLORS] = {} end
+	if not d.defaultsApplied then
+		if addon.ApplyDefaultColors then addon.ApplyDefaultColors() end
+		d.defaultsApplied = true
+	end
 end
 
 function R:IsEnabled()
