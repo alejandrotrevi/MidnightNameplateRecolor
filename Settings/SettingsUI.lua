@@ -9,10 +9,14 @@ local PREFIX = "MNR_"
 
 addon.SettingsLayout = addon.SettingsLayout or { elements = {} }
 
--- Root category registered at file load; the Blizzard settings panel holds a
--- reference for the session.
-local rootCat = SettingsLib:CreateRootCategory(addonName, false)
-addon.SettingsLayout.rootCategory = rootCat
+-- Root category is registered lazily from InitSettings (the shared lifecycle
+-- entry point in Settings.lua), not at file load. Keeps file scope free of
+-- SettingsLib:Create* calls per the lifecycle rules.
+function addon.functions.EnsureRootCategory()
+	if addon.SettingsLayout.rootCategory then return addon.SettingsLayout.rootCategory end
+	addon.SettingsLayout.rootCategory = SettingsLib:CreateRootCategory(addonName, false)
+	return addon.SettingsLayout.rootCategory
+end
 
 function addon.functions.SettingsCreateCheckbox(cat, data)
 	local element, setting = SettingsLib:CreateCheckbox(cat, {

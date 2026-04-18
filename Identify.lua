@@ -19,6 +19,8 @@ local tostring        = tostring
 local pcall           = pcall
 local format          = string.format
 
+local I = addon
+
 -- Shared PlayerModel probe. Alpha 0 + offscreen position hides it; do NOT call
 -- Hide() (hidden PlayerModel frames don't load models, so GetModelFileID then
 -- returns nil). Replicated from the Personal QOL probe POC.
@@ -151,7 +153,7 @@ function addon.DebugIdentify(unit)
 	if not unit then return nil end
 	local base, ext, fileID, level = buildFingerprints(unit)
 	local mapID = currentMapID()
-	local byMap = mapID and addon.Fingerprints[mapID] or nil
+	local byMap = mapID and I.Fingerprints[mapID] or nil
 	local npcID = base and byMap and ((ext and byMap[ext]) or byMap[base]) or nil
 	return {
 		fileID  = fileID,
@@ -177,7 +179,7 @@ function addon.Identify(unit)
 	if cached then return cached.mapID, cached.npcID end
 
 	local mapID = currentMapID()
-	local table_ = mapID and addon.Fingerprints[mapID] or nil
+	local table_ = mapID and I.Fingerprints[mapID] or nil
 	if not table_ then
 		cache[unit] = false
 		return nil

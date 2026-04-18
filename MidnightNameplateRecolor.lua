@@ -1,5 +1,20 @@
 local addonName, addon = ...
 
+local CreateFrame     = CreateFrame
+local print           = print
+local tostring        = tostring
+local format          = string.format
+local pairs           = pairs
+local ipairs          = ipairs
+local UnitExists      = UnitExists
+local UnitCanAttack   = UnitCanAttack
+local UnitIsPlayer    = UnitIsPlayer
+local C_NamePlate     = C_NamePlate
+local GetInstanceInfo = GetInstanceInfo
+
+-- -----------------------------------------------------------------------------
+-- Lifecycle events
+-- -----------------------------------------------------------------------------
 -- Shared lifecycle (same shape as PersonalQOL's PersonalQOL.lua):
 --   ADDON_LOADED: bind SavedVariables, init DB defaults
 --   PLAYER_LOGIN: build settings panel, enable runtime
@@ -32,6 +47,9 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 	if h then h(self, ...) end
 end)
 
+-- -----------------------------------------------------------------------------
+-- /mnr slash command
+-- -----------------------------------------------------------------------------
 -- Slash command for quick toggling / repaint / diagnostics. Mirrors the
 -- PersonalQOL POC's `/pqnpr` surface so muscle memory transfers.
 SLASH_MNR1 = "/mnr"
@@ -99,12 +117,12 @@ SlashCmdList["MNR"] = function(msg)
 					if child._mixedIn and child.health then eui = child; break end
 				end
 			end
-			print(string.format("    %s fp=%s", u, tostring(d.base)))
-			print(string.format("      ext=%s npcID=%s name=%s",
+			print(format("    %s fp=%s", u, tostring(d.base)))
+			print(format("      ext=%s npcID=%s name=%s",
 				tostring(d.ext),
 				tostring(d.npcID or "(no match)"),
 				tostring(mob or "?")))
-			print(string.format("      color=%s eui=%s hooked=%s buffs=%s",
+			print(format("      color=%s eui=%s hooked=%s buffs=%s",
 				tostring(colorKey or "(unset)"),
 				eui and "yes" or "no",
 				eui and eui._mnrHooked and "yes" or "no",

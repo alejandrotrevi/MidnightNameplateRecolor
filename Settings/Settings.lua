@@ -82,6 +82,7 @@ end
 
 function addon.functions.InitSettings()
 	if addon.SettingsLayout.ready then return end
+	addon.functions.EnsureRootCategory()
 	buildSettings()
 	addon.SettingsLayout.ready = true
 end

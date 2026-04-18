@@ -17,6 +17,9 @@ local UnitIsPlayer    = UnitIsPlayer
 local hooksecurefunc  = hooksecurefunc
 local ipairs          = ipairs
 local pairs           = pairs
+local tostring        = tostring
+local type            = type
+local format          = string.format
 
 local MAX_NAMEPLATES = 40
 local DB_ENABLED = "enabled"
@@ -28,7 +31,7 @@ local R = addon.Recolor
 R.debug = false
 local function dprint(fmt, ...)
 	if not R.debug then return end
-	print("|cff7fffd4[MNR]|r " .. string.format(fmt, ...))
+	print("|cff7fffd4[MNR]|r " .. format(fmt, ...))
 end
 
 local function db()
